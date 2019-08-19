@@ -55,7 +55,7 @@ extension ShoppingCart {
     //Check how many of each exists
     let itemStrings: [String] = setOfChocolates.map {
       chocolate in
-      let count: Int = chocolates.reduce(0) {
+      let count: Int = chocolates.value.reduce(0) {
         runningTotal, reduceChocolate in
         if chocolate == reduceChocolate {
           return runningTotal + 1
