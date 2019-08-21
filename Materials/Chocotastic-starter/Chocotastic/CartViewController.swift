@@ -27,11 +27,14 @@
 /// THE SOFTWARE.
 
 import UIKit
+import RxSwift
 
 class CartViewController: UIViewController {
   @IBOutlet private var checkoutButton: UIButton!
   @IBOutlet private var totalItemsLabel: UILabel!
   @IBOutlet private var totalCostLabel: UILabel!
+  @IBOutlet private var tableView: UITableView!
+  private let disposeBag = DisposeBag()
 }
 
 //MARK: - View lifecycle
@@ -40,6 +43,8 @@ extension CartViewController {
     super.viewDidLoad()
     title = "Cart"
     configureFromCart()
+    setupCellConfiguration()
+    setupCellTapHandling()
   }
 }
 
@@ -48,6 +53,42 @@ extension CartViewController {
   @IBAction func reset() {
     ShoppingCart.sharedCart.chocolates.accept([])
     let _ = navigationController?.popViewController(animated: true)
+  }
+}
+
+// MARK: - Rx Setup
+private extension CartViewController {
+  func setupCellConfiguration() {
+    ShoppingCart.sharedCart.chocolates
+      .bind(to: tableView.rx.items(cellIdentifier: ChocolateCell.Identifier, cellType: ChocolateCell.self)) {
+        row, chocolate, cell in
+        cell.configureWithChocolate(chocolate: chocolate)
+    }.disposed(by: disposeBag)
+  }
+
+  func setupCellTapHandling() {
+    tableView
+      .rx
+      .modelSelected(Chocolate.self) //1
+      .subscribe(onNext: { [unowned self] chocolate in // 2
+        let newValue =  ShoppingCart.sharedCart.chocolates.value + [chocolate]
+        ShoppingCart.sharedCart.chocolates.accept(newValue) //3
+
+        if let selectedRowIndexPath = self.tableView.indexPathForSelectedRow {
+          self.tableView.deselectRow(at: selectedRowIndexPath, animated: true)
+        } //4
+      })
+      .disposed(by: disposeBag) //5
+
+    tableView
+      .rx
+      .itemDeleted
+      .subscribe(onNext: { indexPath in
+        var newValue = ShoppingCart.sharedCart.chocolates.value
+        newValue.remove(at: indexPath.row)
+        ShoppingCart.sharedCart.chocolates.accept(newValue)
+      })
+      .disposed(by: disposeBag)
   }
 }
 
@@ -60,7 +101,7 @@ private extension CartViewController {
     }
     
     let cart = ShoppingCart.sharedCart
-    totalItemsLabel.text = cart.itemCountString
+//    totalItemsLabel.text = cart.itemCountString
     
     let cost = cart.totalCost
     totalCostLabel.text = CurrencyFormatter.dollarsFormatter.string(from: cost)
